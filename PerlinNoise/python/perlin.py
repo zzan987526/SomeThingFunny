@@ -4,9 +4,12 @@ import random, math
 from PIL import Image
 import numpy as np
 from numpy.ctypeslib import ndpointer
+import matplotlib
 import matplotlib.pyplot as plt
 from ctypes import *
 from time import time
+import matplotlib.animation as animation
+
 
 
 """
@@ -386,6 +389,30 @@ def octavePerlin2d(lattice, res, octaves = 1, persistence=0.5):
 		amplitude *= persistence
 	return noises
 
+def octavePerlin3d(lattice, res, octaves = 1, persistence=0.5):
+
+    lib = CDLL('PerlinNoise.dll')
+    perlinNoise3D = lib.perlinNoise3D
+    perlinNoise3D.argtypes = (c_int, c_int, 
+                            c_int, c_int,
+                            c_int, c_int)
+    perlinNoise3D.restype = ndpointer(dtype=c_float, shape = (res[0], res[1], res[2]))
+
+    noise = np.zeros(res)
+    frequency = 1
+    amplitude = 1
+    for _ in range(octaves):
+        temp = perlinNoise3D(c_int(frequency*lattice[2]), 
+            c_int(frequency*lattice[1]), 
+            c_int(frequency*lattice[0]),
+            c_int(res[2]), 
+            c_int(res[1]),
+            c_int(res[0]) )
+        noise += amplitude * temp
+        frequency *= 2
+        amplitude *= persistence
+    return noise
+
 t1 = time()
 result = octavePerlin2d((8,8), (512, 512), 6)
 print (time()-t1)
@@ -393,4 +420,12 @@ print (time()-t1)
 plt.imshow(result, cmap = 'gray')
 plt.tight_layout()
 plt.savefig("noise2d.png")
+plt.show()
+
+result = octavePerlin3d((1, 4, 4), (40, 256, 256), 4)
+fig = plt.figure()
+images = [[plt.imshow(layer, cmap='hot', interpolation='lanczos', animated=True)] for layer in result]
+animation = animation.ArtistAnimation(fig, images, interval=50, blit=False)
+plt.tight_layout()
+#animation.save('cppnoise.gif', writer="imagemagick", fps = 20, dpi = 100)
 plt.show()
